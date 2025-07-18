@@ -18,8 +18,6 @@
     <ul id="tagList" class="list-group"></ul>
 
     <button id="generatePdfsBtn" class="btn btn-primary mb-3">Generate PDFs</button>
-
-    <!-- <button class="btn btn-primary mb-3" onclick="downloadTags()">Download Tags JSON</button> -->
   </div>
 
   <!-- Tag Input Modal -->
@@ -27,11 +25,13 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="tagModalLabel">Enter Tag</h5>
+          <h5 class="modal-title">Select Tag</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <input type="text" id="tagInput" class="form-control" placeholder="Tag" />
+          <select id="tagSelect" class="form-select">
+            <!-- Options will be filled dynamically -->
+          </select>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -86,8 +86,8 @@
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
-      const pdfWidth = 612;  // letter width in points
-      const pdfHeight = 792; // letter height in points
+      const pdfWidth = 612;
+      const pdfHeight = 792;
       const displayWidth = pdfCanvas.width;
       const displayHeight = pdfCanvas.height;
 
@@ -95,18 +95,27 @@
       const pdfY = pdfHeight - (clickY / displayHeight * pdfHeight);
 
       lastClick = { x: pdfX, y: pdfY };
-      const tagInput = document.getElementById('tagInput');
-      tagInput.value = '';
+
+      const tagSelect = document.getElementById('tagSelect');
+      tagSelect.innerHTML = ''; // Clear old options
+      csvHeaders.forEach(header => {
+        const option = document.createElement('option');
+        option.value = header;
+        option.textContent = header;
+        tagSelect.appendChild(option);
+      });
+
       new bootstrap.Modal(document.getElementById('tagModal')).show();
     });
 
+
     document.getElementById('saveTagBtn').addEventListener('click', () => {
-      const tag = document.getElementById('tagInput').value.trim();
-      if (tag) {
-        tagData.push({ page: pageNum, x: lastClick.x, y: lastClick.y, tag });
+      const selectedTag = document.getElementById('tagSelect').value;
+      if (selectedTag) {
+        tagData.push({ page: pageNum, x: lastClick.x, y: lastClick.y, tag: selectedTag });
         const li = document.createElement('li');
         li.className = 'list-group-item';
-        li.textContent = `Page ${pageNum}: X=${lastClick.x.toFixed(2)}, Y=${lastClick.y.toFixed(2)} - "${tag}"`;
+        li.textContent = `Page ${pageNum}: X=${lastClick.x.toFixed(2)}, Y=${lastClick.y.toFixed(2)} - "${selectedTag}"`;
         document.getElementById('tagList').appendChild(li);
         bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
       }
@@ -133,50 +142,63 @@
       document.body.appendChild(alertPlaceholder);
     }
 
+    document.getElementById('generatePdfsBtn').addEventListener('click', () => {
+      const csvFile = document.getElementById('csvInput').files[0];
+      if (!csvFile) {
+        alert('Please select a CSV file!');
+        return;
+      }
 
-document.getElementById('generatePdfsBtn').addEventListener('click', () => {
-  const csvFile = document.getElementById('csvInput').files[0];
-  if (!csvFile) {
-    alert('Please select a CSV file!');
-    return;
-  }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const csvContent = e.target.result;
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const csvContent = e.target.result;
-
-    fetch("/generate-pdfs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tags: tagData,  // your tags array
-        csv: csvContent
-      })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error("Server error");
-      return res.blob();
-    })
-    .then(blob => {
-      // Trigger download of the returned ZIP
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "filled_pdfs.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Failed to generate PDFs.");
+        fetch("/generate-pdfs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tags: tagData,  // tags array
+            csv: csvContent
+          })
+        })
+        .then(res => {
+          if (!res.ok) throw new Error("Server error");
+          return res.blob();
+        })
+        .then(blob => {
+          // Trigger download of the returned ZIP
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = "filled_pdfs.zip";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Failed to generate PDFs.");
+        });
+      };
+      reader.readAsText(csvFile);
     });
-  };
-
-  reader.readAsText(csvFile);
-});
-
+  </script>
+  <script>
+    let csvHeaders = [];
+    document.getElementById('csvInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const csvText = e.target.result;
+        const firstLine = csvText.split('\n')[0].trim();
+        csvHeaders = firstLine.split(',').map(h => h.trim());
+        console.log("Detected CSV headers:", csvHeaders);
+        // You can also update the modal dropdown here if you want to pre-fill it
+      };
+      reader.readAsText(file);
+    });
   </script>
 </body>
 </html>

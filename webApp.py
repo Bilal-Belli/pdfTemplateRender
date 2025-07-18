@@ -8,7 +8,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from PyPDF2 import PdfReader, PdfWriter
 
-
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "PDFtemplate.pdf")
@@ -27,7 +26,6 @@ def upload():
     file.save(path)
     return jsonify({'filename': file.filename})
 
-
 @app.route("/generate-pdfs", methods=["POST"])
 def generate_pdfs():
     data = request.get_json()
@@ -38,7 +36,12 @@ def generate_pdfs():
         return jsonify({"error": "Missing tags or CSV data"}), 400
 
     # Build coordinates from tags
-    coordinates = { tag["tag"]: (tag["x"], tag["y"]) for tag in tags }
+    coordinates = {}
+    for tag in tags:
+        name = tag["tag"]
+        xy = (tag["x"], tag["y"])
+        coordinates.setdefault(name, []).append(xy)
+    # coordinates = { tag["tag"]: (tag["x"], tag["y"]) for tag in tags }
 
     # Parse CSV data sent as raw text
     csv_reader = csv.DictReader(io.StringIO(csv_rows))
@@ -53,8 +56,9 @@ def generate_pdfs():
             can = canvas.Canvas(packet, pagesize=letter)
             for tag_name, value in row.items():
                 if tag_name in coordinates:
-                    x, y = coordinates[tag_name]
-                    can.drawString(x, y, str(value))
+                    for x, y in coordinates[tag_name]:
+                        can.drawString(x, y, f"{value}")
+
             can.save()
             packet.seek(0)
             new_pdf = PdfReader(packet)
