@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify, render_template
+from flask import Flask, json, request, send_file, jsonify, render_template
 import csv
 import io
 import os
@@ -10,8 +10,6 @@ from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "PDFtemplate.pdf")
-# TEMPLATE_PATH = "templates/PDFtemplate.pdf"
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -28,48 +26,44 @@ def upload():
 
 @app.route("/generate-pdfs", methods=["POST"])
 def generate_pdfs():
-    data = request.get_json()
-    tags = data.get("tags")
-    csv_rows = data.get("csv")
-
-    if not tags or not csv_rows:
-        return jsonify({"error": "Missing tags or CSV data"}), 400
-
-    # Build coordinates from tags
-    coordinates = {}
-    for tag in tags:
-        name = tag["tag"]
-        xy = (tag["x"], tag["y"])
-        coordinates.setdefault(name, []).append(xy)
-    # coordinates = { tag["tag"]: (tag["x"], tag["y"]) for tag in tags }
-
-    # Parse CSV data sent as raw text
+    tags = request.form.get("tags")
+    csv_rows = request.form.get("csv")
+    pdf_file = request.files.get("pdf_template")
+    if not tags or not csv_rows or not pdf_file:
+        return jsonify({"error": "Missing data"}), 400
+    tags = json.loads(tags)
+    # Save uploaded PDF template to a temp file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf_file.save(tmp.name)
+        template_path = tmp.name
+    # Parse CSV
     csv_reader = csv.DictReader(io.StringIO(csv_rows))
-
-    # Create a ZIP archive in memory
+    # Create ZIP
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
         for i, row in enumerate(csv_reader):
             pdf_bytes = io.BytesIO()
-            # Fill PDF in memory
             packet = io.BytesIO()
             can = canvas.Canvas(packet, pagesize=letter)
+            coordinates = {}
+            for tag in tags:
+                name = tag["tag"]
+                xy = (tag["x"], tag["y"])
+                coordinates.setdefault(name, []).append(xy)
             for tag_name, value in row.items():
                 if tag_name in coordinates:
                     for x, y in coordinates[tag_name]:
                         can.drawString(x, y, f"{value}")
-
             can.save()
             packet.seek(0)
             new_pdf = PdfReader(packet)
-            existing_pdf = PdfReader(TEMPLATE_PATH)
+            existing_pdf = PdfReader(template_path)
             output = PdfWriter()
             page = existing_pdf.pages[0]
             page.merge_page(new_pdf.pages[0])
             output.add_page(page)
             output.write(pdf_bytes)
             pdf_bytes.seek(0)
-
             zipf.writestr(f"filled_{i}.pdf", pdf_bytes.read())
 
     zip_buffer.seek(0)
