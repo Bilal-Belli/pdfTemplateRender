@@ -4,7 +4,7 @@ This is a flask web app tool that allows you to auto-fill PDF files with data fr
 
 ## Demo
 <div align="center">
-   <video width="100%" alt="demoVideo" src="./examples/demo.mp4">
+   <video width="100%" alt="demoVideo" src="https://github.com/user-attachments/assets/25d86881-66ee-4a60-9d25-f62d1bd2b3ea">
 </div>
 
 ## How to use
