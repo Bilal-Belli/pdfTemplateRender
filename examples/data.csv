@@ -1,6 +1,6 @@
-name,age
-bilal, 23
-moha, 17
-bezilal, 24
-amoha, 18
-bilfal, 25
+name,company,phone,email,city
+John Smith,TechNova,+1-555-123-4567,john.smith@technova.com,New York
+Emily Davis,GreenSolutions,+1-555-987-6543,emily.davis@greensolutions.org,San Francisco
+Michael Brown,InnovaWorks,+1-555-234-5678,michael.brown@innovaworks.io,Chicago
+Sophia Johnson,BlueSky Inc.,+1-555-345-6789,sophia.johnson@blueskyinc.net,Seattle
+David Wilson,FutureSoft,+1-555-456-7890,david.wilson@futuresoft.co,Boston
